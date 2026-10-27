@@ -1,0 +1,189 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./mystyle.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String             @id @default(uuid())
+  email             String             @unique
+  passwordHash      String
+  name              String
+  phone             String?
+  role              String             @default("customer") // "customer", "tailor", "staff", "admin"
+  addresses         Address[]
+  orders            Order[]
+  tailoringRequests TailoringRequest[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName   String
+  phone      String
+  wilayaCode Int
+  wilayaName String
+  commune    String
+  address    String
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Category {
+  id            String    @id @default(uuid())
+  slug          String    @unique
+  nameFr        String
+  nameAr        String
+  nameEn        String
+  descriptionFr String?
+  descriptionAr String?
+  descriptionEn String?
+  image         String?
+  order         Int       @default(0)
+  products      Product[]
+  createdAt     DateTime  @default(now())
+}
+
+model Product {
+  id                String             @id @default(uuid())
+  slug              String             @unique
+  nameFr            String
+  nameAr            String
+  nameEn            String
+  descriptionFr     String
+  descriptionAr     String
+  descriptionEn     String
+  priceDzd          Int
+  originalPriceDzd  Int?
+  categoryId        String
+  category          Category           @relation(fields: [categoryId], references: [id])
+  type              String             @default("ready_to_wear") // "ready_to_wear", "made_to_order"
+  originRegion      String?            // "Tlemcen", "Alger", "Constantine", "Oran", etc.
+  leadTimeDays      Int?               @default(14)
+  isFeatured        Boolean            @default(false)
+  isNew             Boolean            @default(false)
+  isTrending        Boolean            @default(false)
+  isPublished       Boolean            @default(true)
+  images            String             // JSON string array of URLs
+  variants          ProductVariant[]
+  tailoringRequests TailoringRequest[]
+  orderItems        OrderItem[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model ProductVariant {
+  id          String      @id @default(uuid())
+  productId   String
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colorNameFr String
+  colorNameAr String
+  colorNameEn String
+  colorHex    String
+  size        String
+  stock       Int         @default(0)
+  sku         String      @unique
+  orderItems  OrderItem[]
+}
+
+model Wilaya {
+  code             Int     @id
+  nameFr           String
+  nameAr           String
+  homeDeliveryFee  Int     @default(800)
+  relayDeliveryFee Int     @default(450)
+  active           Boolean @default(true)
+}
+
+model DiscountCode {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  type        String    @default("percentage") // "percentage", "fixed"
+  value       Int       // percent (e.g. 10) or DZD (e.g. 1000)
+  minOrderDzd Int       @default(0)
+  active      Boolean   @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Order {
+  id            String               @id @default(uuid())
+  orderNumber   String               @unique
+  userId        String?
+  user          User?                @relation(fields: [userId], references: [id])
+  customerName  String
+  customerPhone String
+  wilayaCode    Int
+  wilayaName    String
+  commune       String
+  address       String
+  deliveryType  String               @default("home") // "home", "relay"
+  paymentMethod String               @default("cod") // "cod", "card"
+  notes         String?
+  status        String               @default("pending") // "pending", "confirmed", "preparing", "shipped", "delivered", "cancelled", "returned"
+  subtotalDzd   Int
+  deliveryFeeDzd Int
+  discountDzd   Int                  @default(0)
+  discountCode  String?
+  totalDzd      Int
+  items         OrderItem[]
+  history       OrderStatusHistory[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+model OrderItem {
+  id        String          @id @default(uuid())
+  orderId   String
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product         @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  title     String
+  color     String?
+  size      String?
+  priceDzd  Int
+  quantity  Int
+  image     String?
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model TailoringRequest {
+  id               String   @id @default(uuid())
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id])
+  userName         String
+  userEmail        String?
+  userPhone        String
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id])
+  productTitle     String
+  measurements     String?  // JSON string: { bust, waist, hips, height, shoulder, sleeve }
+  standardSize     String?
+  color            String?
+  embroideryOption String?
+  fabricVariation  String?
+  notes            String?
+  desiredDate      String?
+  status           String   @default("submitted") // "submitted", "quote_sent", "accepted", "in_production", "ready", "shipped", "delivered", "declined", "cancelled"
+  quotedPriceDzd   Int?
+  estimatedDays    Int?
+  adminNotes       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
