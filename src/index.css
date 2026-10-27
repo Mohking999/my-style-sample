@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #FBFBF9;
+    --color-surface: #FFFFFF;
+    --color-primary: #111111;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  [dir="rtl"] body {
+    font-family: 'Cairo', system-ui, sans-serif;
+  }
+
+  [dir="rtl"] .font-serif {
+    font-family: 'Cairo', serif;
+    font-weight: 700;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F1EC;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C4C4BC;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8A8A80;
+}
+
+/* Clean image load */
+img {
+  text-indent: -10000px;
+}
+
+/* Subtle transitions */
+.transition-editorial {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
