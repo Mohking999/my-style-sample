@@ -8,6 +8,10 @@ binding = "DB"
 database_name = "mystyle-db"
 database_id = "bac50a88-9b01-468c-86fc-8de7051cf092"
 
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "mystyle-product-images"
+
 [vars]
 NODE_ENV = "production"
 JWT_SECRET = "mystyle-algeria-super-secret-key-2026-production"

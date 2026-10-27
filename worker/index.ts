@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 
 type Bindings = {
   DB: D1Database;
+  IMAGES: R2Bucket;
   JWT_SECRET?: string;
   NODE_ENV?: string;
 };
@@ -1006,4 +1007,203 @@ app.delete('/api/admin/products/:id', async (c) => {
   }
 });
 
+// -------------------------------------------------------------
+// Cloudflare R2 Object Storage (Product Images - Admin Only)
+// -------------------------------------------------------------
+app.post('/api/upload', async (c) => {
+  try {
+    const user = await getUserFromReq(c);
+    if (!user || (user.role !== 'admin' && user.role !== 'staff')) {
+      return c.json({ error: 'Accès réservé aux administrateurs' }, 403);
+    }
+
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    if (!file) {
+      return c.json({ error: 'Aucun fichier fourni' }, 400);
+    }
+
+    const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
+    if (!allowedMime.includes(file.type)) {
+      return c.json({ error: 'Format non supporté (seuls JPG, PNG, WEBP, AVIF sont acceptés)' }, 400);
+    }
+
+    const ext = file.name.split('.').pop() || 'jpg';
+    const cleanName = file.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const key = `products/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    await c.env.IMAGES.put(key, arrayBuffer, {
+      httpMetadata: {
+        contentType: file.type || 'image/jpeg',
+      },
+      customMetadata: {
+        originalName: cleanName,
+        uploadedBy: user.email,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const publicUrl = `/api/images/${key}`;
+
+    return c.json({
+      success: true,
+      key,
+      url: publicUrl,
+      size: file.size,
+      contentType: file.type,
+      message: 'Image téléversée avec succès sur Cloudflare R2',
+    });
+  } catch (err: any) {
+    console.error('R2 upload error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// GET /api/images/* - Serve images from Cloudflare R2
+app.get('/api/images/:key{.*}', async (c) => {
+  try {
+    const key = c.req.param('key');
+    if (!key) {
+      return c.json({ error: 'Clé d’image manquante' }, 400);
+    }
+
+    const object = await c.env.IMAGES.get(key);
+    if (!object) {
+      return c.json({ error: 'Image introuvable dans R2' }, 404);
+    }
+
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set('etag', object.httpEtag);
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'image/jpeg');
+    }
+
+    return new Response(object.body, { headers });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// DELETE /api/images/* - Delete an image from Cloudflare R2 (Admin only)
+app.delete('/api/images/:key{.*}', async (c) => {
+  try {
+    const user = await getUserFromReq(c);
+    if (!user || (user.role !== 'admin' && user.role !== 'staff')) {
+      return c.json({ error: 'Accès réservé aux administrateurs' }, 403);
+    }
+
+    const key = c.req.param('key');
+    await c.env.IMAGES.delete(key);
+    return c.json({ success: true, message: 'Image supprimée de Cloudflare R2' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// POST /api/admin/r2/sync-catalog-photos - Populate Cloudflare R2 with all product and category photos
+app.post('/api/admin/r2/sync-catalog-photos', async (c) => {
+  try {
+    const user = await getUserFromReq(c);
+    if (!user || user.role !== 'admin') {
+      return c.json({ error: 'Accès réservé aux administrateurs' }, 403);
+    }
+
+    // 1. Sync Product Photos
+    const { results } = await c.env.DB.prepare('SELECT id, slug, images FROM Product').all();
+    const products = results || [];
+
+    let syncedCount = 0;
+    const syncedDetails: any[] = [];
+
+    for (const p of products as any[]) {
+      let imgs: string[] = [];
+      try {
+        imgs = typeof p.images === 'string' ? JSON.parse(p.images) : p.images || [];
+      } catch {
+        imgs = [p.images];
+      }
+
+      let modified = false;
+      const newImgs: string[] = [];
+
+      for (let i = 0; i < imgs.length; i++) {
+        const url = imgs[i];
+        if (url.startsWith('/api/images/')) {
+          newImgs.push(url);
+          continue;
+        }
+
+        const ext = 'jpg';
+        const key = `products/${p.slug}-${i + 1}.${ext}`;
+        try {
+          const fetchRes = await fetch(url);
+          if (fetchRes.ok) {
+            const buffer = await fetchRes.arrayBuffer();
+            const contentType = fetchRes.headers.get('content-type') || 'image/jpeg';
+            await c.env.IMAGES.put(key, buffer, {
+              httpMetadata: { contentType },
+              customMetadata: {
+                productSlug: p.slug,
+                originalUrl: url,
+                syncedAt: new Date().toISOString(),
+              },
+            });
+            const r2Url = `/api/images/${key}`;
+            newImgs.push(r2Url);
+            modified = true;
+          } else {
+            newImgs.push(url);
+          }
+        } catch (e: any) {
+          console.error(`Error syncing image ${url} for ${p.slug}:`, e);
+          newImgs.push(url);
+        }
+      }
+
+      if (modified) {
+        await c.env.DB.prepare('UPDATE Product SET images = ? WHERE id = ?')
+          .bind(JSON.stringify(newImgs), p.id)
+          .run();
+        syncedCount++;
+        syncedDetails.push({ slug: p.slug, images: newImgs });
+      }
+    }
+
+    // 2. Sync Category Photos
+    const catRes = await c.env.DB.prepare('SELECT id, slug, image FROM Category').all();
+    for (const cat of (catRes.results || []) as any[]) {
+      if (cat.image && !cat.image.startsWith('/api/images/')) {
+        const key = `categories/${cat.slug}.jpg`;
+        try {
+          const fetchRes = await fetch(cat.image);
+          if (fetchRes.ok) {
+            const buffer = await fetchRes.arrayBuffer();
+            const contentType = fetchRes.headers.get('content-type') || 'image/jpeg';
+            await c.env.IMAGES.put(key, buffer, {
+              httpMetadata: { contentType },
+              customMetadata: { categorySlug: cat.slug, syncedAt: new Date().toISOString() },
+            });
+            await c.env.DB.prepare('UPDATE Category SET image = ? WHERE id = ?')
+              .bind(`/api/images/${key}`, cat.id)
+              .run();
+          }
+        } catch {}
+      }
+    }
+
+    return c.json({
+      success: true,
+      message: `${syncedCount} produits et leurs photos sont désormais hébergés sur Cloudflare R2`,
+      syncedCount,
+      details: syncedDetails,
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 export default app;
+

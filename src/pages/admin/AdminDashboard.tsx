@@ -33,6 +33,7 @@ import {
   Eye,
   RefreshCw,
   ExternalLink,
+  UploadCloud,
 } from 'lucide-react';
 import { Product, Order, TailoringRequest, Wilaya, DiscountCode } from '@/types';
 
@@ -182,6 +183,38 @@ export const AdminDashboard: React.FC = () => {
   const [newProdColor, setNewProdColor] = useState('Noir');
   const [newProdHex, setNewProdHex] = useState('#111111');
   const [newProdStock, setNewProdStock] = useState('10');
+  const [isUploadingR2, setIsUploadingR2] = useState(false);
+
+  // Handle R2 image upload
+  const handleR2FileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingR2(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('mystyle_token') || '';
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        success('Photo hébergée sur Cloudflare R2 avec succès !');
+        setNewProdImages((prev) => (prev.trim() ? `${prev}\n${data.url}` : data.url));
+      } else {
+        toastError(data.error || 'Erreur lors du téléversement R2');
+      }
+    } catch {
+      toastError('Échec de la connexion à Cloudflare R2');
+    } finally {
+      setIsUploadingR2(false);
+      e.target.value = '';
+    }
+  };
 
   // Handle Order Status Update
   const handleUpdateOrderStatus = async (e: React.FormEvent) => {
@@ -1438,16 +1471,32 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 mb-1.5">
-              URL(s) des photos (une par ligne)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700">
+                Photos du produit
+              </label>
+              <label className="cursor-pointer inline-flex items-center space-x-1.5 text-[11px] font-semibold text-forest-800 bg-forest-50 hover:bg-forest-100 border border-forest-200 px-2.5 py-1 transition-colors">
+                <UploadCloud className="w-3.5 h-3.5 text-forest-700" />
+                <span>{isUploadingR2 ? 'Téléversement R2...' : 'Téléverser vers Cloudflare R2'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isUploadingR2}
+                  onChange={handleR2FileUpload}
+                />
+              </label>
+            </div>
             <textarea
               rows={2}
               value={newProdImages}
               onChange={(e) => setNewProdImages(e.target.value)}
               className="w-full bg-white border border-border text-xs p-2.5 font-mono focus:outline-none focus:border-primary"
-              placeholder="https://images.unsplash.com/..."
+              placeholder="https://... ou téléversez directement une photo vers Cloudflare R2 ci-dessus"
             />
+            <p className="text-[10px] text-neutral-500 mt-1">
+              Les fichiers téléversés sont stockés de manière pérenne sur Cloudflare R2 (<code className="font-mono text-neutral-700">mystyle-product-images</code>).
+            </p>
           </div>
 
           <div>

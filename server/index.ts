@@ -41,6 +41,24 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/tailoring', tailoringRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Proxy Cloudflare R2 images when running local Express server
+app.use('/api/images', async (req, res) => {
+  try {
+    const remoteUrl = `https://mystyle-api.djebiriabdrazak.workers.dev${req.originalUrl}`;
+    const remoteRes = await fetch(remoteUrl);
+    if (!remoteRes.ok) {
+      return res.status(remoteRes.status).send('Image not found');
+    }
+    const contentType = remoteRes.headers.get('content-type') || 'image/jpeg';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    const buffer = await remoteRes.arrayBuffer();
+    return res.send(Buffer.from(buffer));
+  } catch (err: any) {
+    return res.status(500).send(err.message);
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
