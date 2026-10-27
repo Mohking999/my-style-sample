@@ -101,8 +101,32 @@ npm test
 
 ---
 
-## 5. Hypothèses & Limitations Connues
+## 5. Déploiement Backend sur Cloudflare (Workers + D1)
 
-1. **Base de données locale :** Par défaut, SQLite via Prisma est utilisé pour un fonctionnement autonome sans dépendance externe. En production sur serveur dédié, le passage à PostgreSQL s'effectue en modifiant la variable `DATABASE_URL` dans `.env` et le provider dans `prisma/schema.prisma`.
+Le backend a été entièrement déployé sur l'infrastructure **Cloudflare Workers** avec base de données distribuée **Cloudflare D1** :
+
+- **API Live Cloudflare Workers :** [https://mystyle-api.djebiriabdrazak.workers.dev](https://mystyle-api.djebiriabdrazak.workers.dev)
+- **Base de données Cloudflare D1 :** `mystyle-db` (ID: `bac50a88-9b01-468c-86fc-8de7051cf092`)
+- **Framework Edge :** Hono (`hono`) avec support Node.js compat (`crypto`, `buffer`, etc.)
+- **Données en production :** 42 pièces de mode, les 58 wilayas algériennes, 9 catégories, codes promos et comptes de démonstration.
+
+### Commandes Cloudflare Wrangler :
+```bash
+# Tester le worker en local avec émulation D1
+npm run worker:dev
+
+# Déployer les mises à jour sur Cloudflare Workers
+npm run deploy:worker
+
+# Exécuter les migrations SQL sur la base D1 distante
+npm run d1:migrate
+```
+
+---
+
+## 6. Hypothèses & Limitations Connues
+
+1. **Architecture Bi-Mode :** L'application supporte à la fois le serveur local Node.js + Express + Prisma SQLite (`npm run server`) et le déploiement Cloudflare Workers (Hono) + Cloudflare D1 (`npm run deploy:worker`).
 2. **Paiement CIB / Edahabia :** Conformément à l'énoncé, le paiement à la livraison en espèces (COD) est actif par défaut. L'intégration de la passerelle SATIM / CIB pour le paiement par carte est représentée dans l'interface et prête pour l'API bancaire de production.
-3. **Images :** Les visuels utilisent des photographies éditoriales haute résolution 4:5 sans logo de marque concurrente, hébergées via CDN sécurisé. En production Cloudflare Workers, Cloudflare R2 ou AWS S3 peut être configuré pour le téléversement direct de photos par les administrateurs.
+3. **Images :** Les visuels utilisent des photographies éditoriales haute résolution 4:5 sans logo de marque concurrente, hébergées via CDN sécurisé. En production Cloudflare Workers, Cloudflare R2 peut être configuré pour le stockage d'images par les administrateurs.
+
