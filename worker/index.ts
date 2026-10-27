@@ -303,8 +303,9 @@ app.get('/api/products/:slug', async (c) => {
     const formatted = formatProduct(p, variants, categoryObj);
 
     return c.json({
-      ...formatted,
+      product: formatted,
       related,
+      ...formatted,
     });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

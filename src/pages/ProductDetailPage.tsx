@@ -76,12 +76,12 @@ export const ProductDetailPage: React.FC = () => {
     },
   });
 
-  const product: Product | undefined = data?.product;
+  const product: Product | undefined = data?.product || (data?.id ? (data as unknown as Product) : undefined);
   const relatedProducts: Product[] = data?.related || [];
 
   // Initialize selected variant once product loads
   React.useEffect(() => {
-    if (product && product.variants.length > 0) {
+    if (product && Array.isArray(product.variants) && product.variants.length > 0) {
       const firstInStock = product.variants.find((v) => v.stock > 0) || product.variants[0];
       setSelectedColorHex(firstInStock.colorHex);
       setSelectedSize(firstInStock.size);

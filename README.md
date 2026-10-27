@@ -124,9 +124,33 @@ npm run d1:migrate
 
 ---
 
-## 6. Hypothèses & Limitations Connues
+## 6. Déploiement Frontend Spécifique sur Vercel
 
-1. **Architecture Bi-Mode :** L'application supporte à la fois le serveur local Node.js + Express + Prisma SQLite (`npm run server`) et le déploiement Cloudflare Workers (Hono) + Cloudflare D1 (`npm run deploy:worker`).
+Le frontend MyStyle est optimisé spécifiquement pour un déploiement haute performance sur le réseau Edge mondial de **Vercel** :
+
+- **Configuration Vercel :** [vercel.json](file:///d:/my%20style/vercel.json)
+  - **Routage SPA complet :** Fallback transparent `/(.*) -> /index.html` pour React Router.
+  - **Proxy inverse de l'API :** `/api/:path*` est relayé automatiquement vers le backend Cloudflare Workers (`https://mystyle-api.djebiriabdrazak.workers.dev/api/:path*`), éliminant tout blocage CORS et garantissant une expérience premier tiers.
+  - **Mise en cache Edge :** Cache immuable 1 an (`Cache-Control: public, max-age=31536000, immutable`) pour les photos R2 et bundles JS/CSS.
+  - **En-têtes de sécurité :** Protection `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
+- **Filtre de déploiement :** [.vercelignore](file:///d:/my%20style/.vercelignore) exclus les bases de données et le code serveur pour un bundle frontend ultra-léger.
+
+### Commandes Vercel :
+```bash
+# 1. Connexion à Vercel CLI (si ce n'est pas déjà fait)
+npx vercel login
+
+# 2. Déployer directement en production
+npx vercel --prod
+```
+*Note : Si vous connectez votre dépôt GitHub à l'interface Vercel, Vercel détecte automatiquement la configuration `vercel.json` et déploie instantanément à chaque push.*
+
+---
+
+## 7. Hypothèses & Limitations Connues
+
+1. **Architecture Hybride Recommandée :** Frontend hébergé sur Vercel (CDN Edge rapide) + API sur Cloudflare Workers (Hono) + Base D1 (SQLite distribué) + Photos sur Cloudflare R2 (`mystyle-product-images`). Le projet conserve également le mode autonome local Node.js + Express + SQLite (`npm run dev:all`).
 2. **Paiement CIB / Edahabia :** Conformément à l'énoncé, le paiement à la livraison en espèces (COD) est actif par défaut. L'intégration de la passerelle SATIM / CIB pour le paiement par carte est représentée dans l'interface et prête pour l'API bancaire de production.
-3. **Images :** Les visuels utilisent des photographies éditoriales haute résolution 4:5 sans logo de marque concurrente, hébergées via CDN sécurisé. En production Cloudflare Workers, Cloudflare R2 peut être configuré pour le stockage d'images par les administrateurs.
+3. **Photos de produits :** 100% des photos des 42 produits sont hébergées sur Cloudflare R2 avec streaming optimisé et téléversement direct depuis l'interface administrateur.
+
 
