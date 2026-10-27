@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { ShieldCheck, User, Scissors } from 'lucide-react';
+import { ShieldCheck, User, Scissors, Headphones } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const { t } = useTranslation();
@@ -135,6 +135,18 @@ export const LoginPage: React.FC = () => {
                 <span>Maître Tailleur (Atelier Casbah)</span>
               </span>
               <span className="font-mono text-[10px] text-neutral-400">tailor@mystyle.dz</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickDemoLogin('staff@mystyle.dz', 'staff1234')}
+              className="w-full text-start px-2.5 py-1.5 bg-white border border-border hover:border-neutral-900 transition-colors flex items-center justify-between text-neutral-700"
+            >
+              <span className="flex items-center space-x-1.5 rtl:space-x-reverse">
+                <Headphones className="w-3.5 h-3.5 text-blue-600" />
+                <span>Service Client / Staff (Nadia)</span>
+              </span>
+              <span className="font-mono text-[10px] text-neutral-400">staff@mystyle.dz</span>
             </button>
           </div>
         </div>
