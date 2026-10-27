@@ -18,10 +18,15 @@ import { SizeGuidePage } from './pages/static/SizeGuidePage';
 import { ContactPage } from './pages/static/ContactPage';
 import { TermsPage } from './pages/static/TermsPage';
 import { PrivacyPage } from './pages/static/PrivacyPage';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
 
 export default function App() {
   return (
     <Routes>
+      {/* Admin Panel */}
+      <Route path="admin" element={<AdminDashboard />} />
+
+      {/* Public Store Layout */}
       <Route path="/" element={<Layout />}>
         {/* Browsing */}
         <Route index element={<HomePage />} />
