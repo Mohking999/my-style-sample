@@ -14,7 +14,9 @@
     "test": "vitest run",
     "worker:dev": "wrangler dev",
     "deploy:worker": "wrangler deploy",
-    "d1:migrate": "wrangler d1 execute mystyle-db --remote --file=./migrations/0001_initial_d1.sql"
+    "d1:migrate": "wrangler d1 execute mystyle-db --remote --file=./migrations/0001_initial_d1.sql",
+    "vercel:build": "vite build",
+    "deploy:frontend": "vercel --prod"
   },
   "devDependencies": {
     "@prisma/client": "6.19.3",
